@@ -1,0 +1,60 @@
+# Banco de dados SQLite
+database.db
+*.db
+
+# Ambiente virtual Python
+venv/
+env/
+ENV/
+.venv
+
+# Arquivos compilados
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Arquivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.vscode
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Arquivos temporários
+*.tmp
+.tmp/
+*.bak
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Node (se usar ferramentas frontend)
+node_modules/
+package-lock.json
+
+# Pasta de vídeos (comentar se quiser versionar vídeos menores)
+static/videos/*.mp4
+static/videos/*.webm
+static/videos/*.ogv
+static/videos/*.mov
+
+# Configurações locais
+.env
+.env.local
+config.local.py
+
+# Arquivos de distribuição
+dist/
+build/
+*.egg-info/
+
+# Coverage
+.coverage
+htmlcov/
