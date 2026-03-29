@@ -260,8 +260,8 @@ def salvar_progresso():
     if progresso_atual:
         tempo_anterior = progresso_atual['tempo']
         # Permitir pulo máximo de 30 segundos ou se for menor (rebobinamento)
-        if tempo - tempo_anterior > 30:
-            tempo = tempo_anterior + 30
+        if tempo - tempo_anterior > 10:
+            tempo = tempo_anterior + 10
     
     # Verificar se vídeo foi concluído (90% da duração)
     concluido = 1 if tempo >= (duracao * 0.9) else 0

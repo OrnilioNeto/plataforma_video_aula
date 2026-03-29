@@ -1,0 +1,130 @@
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f5f7fa;
+    margin: 0;
+}
+
+/* HEADER */
+.header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 15px 0;
+}
+
+.header-container {
+    max-width: 1200px;
+    margin: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-logout {
+    color: white;
+    border: 1px solid white;
+    padding: 6px 12px;
+    border-radius: 5px;
+    text-decoration: none;
+}
+
+/* LAYOUT */
+.container {
+    max-width: 1200px;
+    margin: auto;
+    padding: 20px;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+}
+
+/* PLAYER */
+.player-card {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.player-wrapper {
+    aspect-ratio: 16/9;
+    background: black;
+}
+
+.player-wrapper iframe,
+.player-wrapper video {
+    width: 100%;
+    height: 100%;
+}
+
+.player-info {
+    padding: 20px;
+}
+
+.meta {
+    display: flex;
+    justify-content: space-between;
+    color: #666;
+}
+
+/* PROGRESS */
+.progress {
+    margin-top: 15px;
+}
+
+.progress-bar {
+    background: #ddd;
+    height: 8px;
+    border-radius: 5px;
+}
+
+#progressFill {
+    height: 100%;
+    width: 0%;
+    background: #667eea;
+}
+
+/* BADGE */
+.badge {
+    display: inline-block;
+    margin-top: 10px;
+    background: orange;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 20px;
+}
+
+/* SIDEBAR */
+.sidebar {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.sidebar li {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.sidebar li.active {
+    background: #e8ecff;
+}
+
+.sidebar a {
+    text-decoration: none;
+    color: #333;
+}
+
+/* NOTICE */
+.notice {
+    margin-top: 15px;
+    background: #fff3cd;
+    padding: 10px;
+    border-radius: 5px;
+}
