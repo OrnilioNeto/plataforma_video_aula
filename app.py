@@ -42,7 +42,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS videos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             titulo TEXT NOT NULL,
-            arquivo TEXT NOT NULL,
+            arquivo TEXT,
+            url TEXT,
+            tipo TEXT,
             duracao INTEGER NOT NULL,
             criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -282,6 +284,16 @@ def salvar_progresso():
         'duracao': duracao
     })
 
+
+
+def converter_youtube(url):
+    if "watch?v=" in url:
+        video_id = url.split("watch?v=")[-1]
+        return f"https://www.youtube.com/embed/{video_id}"
+    elif "youtu.be/" in url:
+        video_id = url.split("youtu.be/")[-1]
+        return f"https://www.youtube.com/embed/{video_id}"
+    return url
 # ==================== ROTAS DO PAINEL ADMIN ====================
 
 @app.route('/admin')
@@ -418,30 +430,50 @@ def cadastrar_video():
         return jsonify({'status': 'erro', 'mensagem': 'Dados inválidos'}), 400
     
     titulo = data.get('titulo', '').strip()
-    arquivo = data.get('arquivo', '').strip()
+    url = data.get('url', '').strip()
     duracao = data.get('duracao')
+
+    tipo = 'arquivo'
+    arquivo = data.get('arquivo', '').strip()
+
+    if url:
+        tipo = 'youtube'
+        url = converter_youtube(url)
     
     # Validações
-    if not titulo or not arquivo or duracao is None:
-        return jsonify({'status': 'erro', 'mensagem': 'Todos os campos são obrigatórios'}), 400
-    
+    # Validação básica
+    if not titulo or duracao is None or not tipo:
+        return jsonify({'status': 'erro', 'mensagem': 'Campos obrigatórios faltando'}), 400
+
+    # Validação por tipo
+    if tipo == 'arquivo' and not arquivo:
+        return jsonify({'status': 'erro', 'mensagem': 'Arquivo é obrigatório'}), 400
+
+    if tipo == 'youtube':
+        if not url:
+            return jsonify({'status': 'erro', 'mensagem': 'URL é obrigatória'}), 400
+        url = converter_youtube(url)
+
+    # Validação da duração
     try:
         duracao = int(duracao)
         if duracao <= 0:
-            raise ValueError("Duração deve ser maior que 0")
+            raise ValueError()
     except (ValueError, TypeError):
         return jsonify({'status': 'erro', 'mensagem': 'Duração deve ser um número válido'}), 400
-    
+
+    # Validação do título
     if len(titulo) < 3:
         return jsonify({'status': 'erro', 'mensagem': 'Título deve ter pelo menos 3 caracteres'}), 400
     
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+        
     try:
         cursor.execute(
-            'INSERT INTO videos (titulo, arquivo, duracao) VALUES (?, ?, ?)',
-            (titulo, arquivo, duracao)
+            'INSERT INTO videos (titulo, arquivo, url, duracao, tipo) VALUES (?, ?, ?, ?, ?)',
+            (titulo, arquivo, url, duracao, tipo)
         )
         conn.commit()
         video_id = cursor.lastrowid

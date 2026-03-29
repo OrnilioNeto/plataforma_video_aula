@@ -659,18 +659,27 @@
                         <label for="titulo">📝 Título do Vídeo</label>
                         <input type="text" id="titulo" name="titulo" placeholder="Digite o título do vídeo" required>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="arquivo">📁 Nome do Arquivo (sem extensão)</label>
-                            <input type="text" id="arquivo" name="arquivo" placeholder="ex: aula_01.mp4" required>
-                            <small style="color: #999; margin-top: 5px; display: block;">
-                                O arquivo deve estar na pasta static/videos/
-                            </small>
-                        </div>
-                        <div class="form-group">
-                            <label for="duracao">⏱️ Duração (segundos)</label>
-                            <input type="number" id="duracao" name="duracao" placeholder="ex: 3600" min="1" required>
-                        </div>
+
+                    <div class="form-group">
+                        <label for="duracao">⏱️ Duração (segundos)</label>
+                        <input type="number" id="duracao" name="duracao" placeholder="Ex: 300">
+                    </div>
+                    <div class="form-group">
+                        <label for="tipo">🎥 Tipo de Vídeo</label>
+                        <select id="tipoVideo" name="tipo" onchange="toggleTipoVideo()">
+                            <option value="arquivo">Arquivo (MP4)</option>
+                            <option value="youtube">YouTube</option>
+                        </select>
+                    </div>
+
+                    <div id="campoArquivo" class="form-group">
+                        <label for="arquivo">📁 Nome do Arquivo</label>
+                        <input type="text" id="arquivo" name="arquivo" placeholder="ex: aula_01.mp4">
+                    </div>
+
+                    <div id="campoUrl" class="form-group" style="display: none;">
+                        <label for="url">🔗 URL do YouTube</label>
+                        <input type="text" id="url" name="url" placeholder="https://www.youtube.com/embed/...">
                     </div>
                     <div class="button-group">
                         <button type="submit" class="btn btn-primary">Cadastrar Vídeo</button>
@@ -786,11 +795,20 @@
             event.preventDefault();
             
             const titulo = document.getElementById('titulo').value;
-            const arquivo = document.getElementById('arquivo').value;
             const duracao = parseInt(document.getElementById('duracao').value);
-            
-            const dados = { titulo, arquivo, duracao };
-            
+            const tipo = document.getElementById('tipoVideo').value;
+
+            let arquivo = '';
+            let url = '';
+
+            if (tipo === 'youtube') {
+                url = document.getElementById('url').value;
+            } else {
+                arquivo = document.getElementById('arquivo').value;
+            }
+
+            const dados = { titulo, arquivo, duracao, tipo, url };
+
             fetch('/admin/cadastrar_video', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -901,6 +919,18 @@
             setTimeout(() => {
                 notificacao.remove();
             }, 3000);
+        }
+
+        function toggleTipoVideo() {
+            const tipo = document.getElementById('tipoVideo').value;
+            
+            if (tipo === 'youtube') {
+                document.getElementById('campoArquivo').style.display = 'none';
+                document.getElementById('campoUrl').style.display = 'block';
+            } else {
+                document.getElementById('campoArquivo').style.display = 'block';
+                document.getElementById('campoUrl').style.display = 'none';
+            }
         }
     </script>
 </body>
