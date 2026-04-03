@@ -14,7 +14,16 @@ app.secret_key = os.environ.get('SECRET_KEY', 'sua-chave-secreta-muito-segura-20
 app.permanent_session_lifetime = timedelta(hours=24)
 
 # Caminho do banco de dados
-DB_PATH = os.environ.get('DB_PATH', '/home/64BitsAcademy/plataforma_video_aula/database.db')
+# O caminho local seguro se adapta dinamicamente independente do servidor
+base_dir = os.path.dirname(os.path.abspath(__file__))
+# Você pode remover do seu .env a linha DB_PATH, ele descobre automático
+DB_PATH = os.environ.get('DB_PATH', os.path.join(base_dir, 'database.db'))
+
+def get_db_connection():
+    """Retorna uma conexão com o banco de dados"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # ==================== FUNCÕES DO BANCO DE DADOS ====================
 
@@ -82,18 +91,26 @@ def init_db():
     
     conn.commit()
     
-    # Verificar se já existe o usuário admin
-    cursor.execute('SELECT * FROM usuarios WHERE username = ?', ('admin',))
+    # Configurações do admin puxadas das variáveis de ambiente (ou usando padrão)
+    admin_nome = os.environ.get('DEFAULT_ADMIN_NOME', 'Ornilio Neto')
+    admin_user = os.environ.get('DEFAULT_ADMIN_USER', 'admin')
+    admin_pass = os.environ.get('DEFAULT_ADMIN_PASS', '@Machado2025')
+
+    # Verificar se já existe o próprio usuário admin da env
+    cursor.execute('SELECT * FROM usuarios WHERE username = ?', (admin_user,))
     if cursor.fetchone() is None:
-        # Configurações do admin puxadas das variáveis de ambiente (ou usando padrão)
-        admin_nome = os.environ.get('DEFAULT_ADMIN_NOME', 'Ornilio Neto')
-        admin_user = os.environ.get('DEFAULT_ADMIN_USER', 'admin')
-        admin_pass = os.environ.get('DEFAULT_ADMIN_PASS', '@Machado2025')
-        
         senha_hash = bcrypt.hashpw(admin_pass.encode('utf-8'), bcrypt.gensalt())
         cursor.execute(
             'INSERT INTO usuarios (nome_completo, username, senha, tipo) VALUES (?, ?, ?, ?)',
             (admin_nome, admin_user, senha_hash, 'admin')
+        )
+        conn.commit()
+    else:
+        # Forçar a atualização da senha configurada no env toda vez que iniciar o app (garantindo login)
+        senha_hash = bcrypt.hashpw(admin_pass.encode('utf-8'), bcrypt.gensalt())
+        cursor.execute(
+            'UPDATE usuarios SET senha = ?, nome_completo = ? WHERE username = ?',
+            (senha_hash, admin_nome, admin_user)
         )
         conn.commit()
     
