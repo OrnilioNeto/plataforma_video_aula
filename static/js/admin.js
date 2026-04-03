@@ -19,6 +19,10 @@ console.log("admin.js carregado!");
                 if (tabName === 'videos' && !document.querySelector('#videosTable tbody tr')) {
                     carregarVideos();
                 }
+                
+                if (tabName === 'relatorios-kpi' && !document.querySelector('#kpiTable tbody tr')) {
+                    carregarRelatoriosKPI();
+                }
             });
         });
 
@@ -59,11 +63,11 @@ console.log("admin.js carregado!");
         function cadastrarUsuario(event) {
             event.preventDefault();
             
-            const username = document.getElementById('username').value;
-            const senha = document.getElementById('senha').value;
+            const nome_completo = document.getElementById('nome_completo').value;
+            const cpf = document.getElementById('cpf').value;
             const tipo = document.getElementById('tipo').value;
             
-            const dados = { username, senha, tipo };
+            const dados = { nome_completo, cpf, tipo };
             
             fetch('/admin/cadastrar_usuario', {
                 method: 'POST',
@@ -228,4 +232,127 @@ console.log("admin.js carregado!");
                 document.getElementById('campoArquivo').style.display = 'block';
                 document.getElementById('campoUrl').style.display = 'none';
             }
+        }
+
+        // ================= ABA VINCULAR ACESSOS =================
+        
+        let todosOsVideosGlobal = [];
+        
+        function carregarVideosUsuario(usuarioId) {
+            if (!usuarioId) {
+                document.getElementById('listaVideosAcesso').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('usuarioAcessoId').value = usuarioId;
+            document.getElementById('listaVideosAcesso').style.display = 'block';
+            
+            // Buscar todos os vídeos se ainda não carregados
+            let promessaVideos = Promise.resolve(todosOsVideosGlobal);
+            if (todosOsVideosGlobal.length === 0) {
+                promessaVideos = fetch('/admin/listar_videos')
+                    .then(r => r.json())
+                    .then(videos => {
+                        todosOsVideosGlobal = videos;
+                        return videos;
+                    });
+            }
+            
+            // Buscar acessos atuais do usuário
+            Promise.all([
+                promessaVideos,
+                fetch(`/admin/listar_acessos_usuario/${usuarioId}`).then(r => r.json())
+            ]).then(([videos, acessosData]) => {
+                const acessos = acessosData.acessos || [];
+                const container = document.getElementById('videosCheckboxes');
+                container.innerHTML = '';
+                
+                if (videos.length === 0) {
+                    container.innerHTML = '<p>Nenhum vídeo cadastrado no sistema ainda.</p>';
+                    return;
+                }
+                
+                videos.forEach(video => {
+                    const idCb = `cb_video_${video.id}`;
+                    const checado = acessos.includes(video.id) ? 'checked' : '';
+                    container.innerHTML += `
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" name="video_acessos" value="${video.id}" ${checado}>
+                            <span>${video.titulo} <small style="color:#777">(${Math.floor(video.duracao/60)}m ${video.duracao%60}s)</small></span>
+                        </label>
+                    `;
+                });
+            }).catch(e => {
+                mostrarNotificacao('Erro ao carregar permissões', 'error');
+                console.error(e);
+            });
+        }
+        
+        function salvarAcessos(event) {
+            event.preventDefault();
+            const usuario_id = document.getElementById('usuarioAcessoId').value;
+            const checkboxes = document.querySelectorAll('input[name="video_acessos"]:checked');
+            const video_ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            
+            fetch('/admin/salvar_acessos_usuario', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usuario_id, video_ids })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.status === 'sucesso') {
+                    mostrarNotificacao('Perrmissões salvas com sucesso!', 'success');
+                } else {
+                    mostrarNotificacao(data.mensagem, 'error');
+                }
+            })
+            .catch(e => mostrarNotificacao('Erro ao salvar permissões', 'error'));
+        }
+
+        // ================= ABA RELATÓRIOS KPI =================
+        function carregarRelatoriosKPI() {
+            fetch('/admin/relatorios_kpi')
+                .then(r => r.json())
+                .then(dados => {
+                    const tbody = document.querySelector('#kpiTable tbody');
+                    tbody.innerHTML = '';
+                    
+                    if (dados.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">Nenhum dado auditável encontrado.</td></tr>';
+                        return;
+                    }
+                    
+                    dados.forEach(d => {
+                        const statusClass = (d.concluido === 'Sim') ? 'completed' : 'pending';
+                        
+                        const tempoA = `${Math.floor(d.tempo_assistido / 60)}m ${Math.floor(d.tempo_assistido % 60)}s`;
+                        const durV = `${Math.floor(d.video_duracao / 60)}m ${d.video_duracao % 60}s`;
+                        
+                        tbody.innerHTML += `
+                            <tr>
+                                <td><strong>${d.nome_completo}</strong></td>
+                                <td>${d.cpf}</td>
+                                <td>${d.video_titulo}</td>
+                                <td>${durV}</td>
+                                <td>${tempoA}</td>
+                                <td>
+                                    <div style="display:flex; align-items:center; gap:10px;">
+                                        <div style="flex-grow:1; display:flex; gap:10px; align-items:center;">
+                                           <div class="progress-bar-small" style="width:100px;">
+                                               <div class="progress-bar-small-fill" style="width: ${d.percentual}%"></div>
+                                           </div>
+                                           <span>${d.percentual}%</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="status-badge ${statusClass}">${d.concluido}</span></td>
+                            </tr>
+                        `;
+                    });
+                })
+                .catch(e => {
+                    mostrarNotificacao('Erro ao carregar KPI', 'error');
+                    console.error(e);
+                });
         }

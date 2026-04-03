@@ -30,6 +30,7 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_completo TEXT,
             username TEXT UNIQUE NOT NULL,
             senha TEXT NOT NULL,
             tipo TEXT DEFAULT 'user' CHECK(tipo IN ('admin', 'user')),
@@ -63,6 +64,18 @@ def init_db():
             FOREIGN KEY(video_id) REFERENCES videos(id) ON DELETE CASCADE
         )
     ''')
+
+    # Tabela de acesso a vídeos
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS usuario_videos_acesso (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            video_id INTEGER NOT NULL,
+            UNIQUE(usuario_id, video_id),
+            FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+            FOREIGN KEY(video_id) REFERENCES videos(id) ON DELETE CASCADE
+        )
+    ''')
     
     conn.commit()
     
@@ -72,8 +85,8 @@ def init_db():
         # Criar usuário admin padrão
         senha_hash = bcrypt.hashpw(b'admin123', bcrypt.gensalt())
         cursor.execute(
-            'INSERT INTO usuarios (username, senha, tipo) VALUES (?, ?, ?)',
-            ('admin', senha_hash, 'admin')
+            'INSERT INTO usuarios (nome_completo, username, senha, tipo) VALUES (?, ?, ?, ?)',
+            ('Administrador do Sistema', 'admin', senha_hash, 'admin')
         )
         conn.commit()
     
@@ -175,19 +188,28 @@ def video_page():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Obter primeiro vídeo (ou especificado na query)
-    video_id = request.args.get('id', 1, type=int)
-    
-    cursor.execute('SELECT * FROM videos WHERE id = ?', (video_id,))
-    video = cursor.fetchone()
-    
-    if video is None:
-        cursor.execute('SELECT * FROM videos LIMIT 1')
-        video = cursor.fetchone()
-    
-    # Obter lista de vídeos
-    cursor.execute('SELECT * FROM videos ORDER BY id')
+    # Obter lista de vídeos permitidos para o usuário
+    cursor.execute('''
+        SELECT v.* FROM videos v
+        JOIN usuario_videos_acesso uva ON uva.video_id = v.id
+        WHERE uva.usuario_id = ?
+        ORDER BY v.id
+    ''', (session['user_id'],))
     videos = cursor.fetchall()
+    
+    if not videos:
+        conn.close()
+        return render_template('video.html', video=None, videos=[], progresso={'tempo': 0, 'concluido': 0}, error="Você não possui vídeos vinculados à sua conta. Contate o administrador.")
+        
+    # Verificar vídeo solicitado
+    video_id_req = request.args.get('id', type=int)
+    video = None
+    
+    if video_id_req:
+        video = next((v for v in videos if v['id'] == video_id_req), None)
+        
+    if video is None:
+        video = videos[0]
     
     # Obter progresso do usuário
     cursor.execute(
@@ -307,6 +329,7 @@ def admin_dashboard():
     cursor.execute('''
         SELECT 
             u.id,
+            u.nome_completo,
             u.username,
             u.tipo,
             u.criado_em,
@@ -344,41 +367,38 @@ def cadastrar_usuario():
     if not data:
         return jsonify({'status': 'erro', 'mensagem': 'Dados inválidos'}), 400
     
-    username = data.get('username', '').strip()
-    senha = data.get('senha', '')
+    nome_completo = data.get('nome_completo', '').strip()
+    cpf = data.get('cpf', '').strip()
     tipo = data.get('tipo', 'user')
     
     # Validações
-    if not username or not senha:
-        return jsonify({'status': 'erro', 'mensagem': 'Usuário e senha são obrigatórios'}), 400
+    if not nome_completo or not cpf:
+        return jsonify({'status': 'erro', 'mensagem': 'Nome completo e CPF são obrigatórios'}), 400
     
-    if len(username) < 3:
-        return jsonify({'status': 'erro', 'mensagem': 'Usuário deve ter pelo menos 3 caracteres'}), 400
-    
-    if len(senha) < 6:
-        return jsonify({'status': 'erro', 'mensagem': 'Senha deve ter pelo menos 6 caracteres'}), 400
+    if len(cpf) < 11:
+        return jsonify({'status': 'erro', 'mensagem': 'CPF inválido (deve conter pelo menos 11 dígitos)'}), 400
     
     if tipo not in ['admin', 'user']:
         tipo = 'user'
     
-    # Validar nome de usuário (apenas letras, números e underscore)
-    if not re.match(r'^[a-zA-Z0-9_]+$', username):
-        return jsonify({'status': 'erro', 'mensagem': 'Usuário pode conter apenas letras, números e underscore'}), 400
+    # Validar CPF (apenas números)
+    if not re.match(r'^[0-9]+$', cpf):
+        return jsonify({'status': 'erro', 'mensagem': 'O CPF deve conter apenas números'}), 400
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
     # Verificar se usuário já existe
-    cursor.execute('SELECT id FROM usuarios WHERE username = ?', (username,))
+    cursor.execute('SELECT id FROM usuarios WHERE username = ?', (cpf,))
     if cursor.fetchone():
         conn.close()
-        return jsonify({'status': 'erro', 'mensagem': 'Este usuário já existe'}), 409
+        return jsonify({'status': 'erro', 'mensagem': 'Este CPF/Usuário já está cadastrado'}), 409
     
     try:
-        senha_hash = hash_password(senha)
+        senha_hash = hash_password(cpf)
         cursor.execute(
-            'INSERT INTO usuarios (username, senha, tipo) VALUES (?, ?, ?)',
-            (username, senha_hash, tipo)
+            'INSERT INTO usuarios (nome_completo, username, senha, tipo) VALUES (?, ?, ?, ?)',
+            (nome_completo, cpf, senha_hash, tipo)
         )
         conn.commit()
         conn.close()
@@ -397,6 +417,7 @@ def listar_usuarios():
     cursor.execute('''
         SELECT 
             u.id,
+            u.nome_completo,
             u.username,
             u.tipo,
             COALESCE(SUM(p.tempo), 0) as tempo_total,
@@ -405,13 +426,14 @@ def listar_usuarios():
         LEFT JOIN progresso p ON u.id = p.usuario_id
         WHERE u.tipo = 'user'
         GROUP BY u.id
-        ORDER BY u.username
+        ORDER BY u.nome_completo
     ''')
     usuarios = cursor.fetchall()
     conn.close()
     
     usuarios_list = [{
         'id': u['id'],
+        'nome_completo': u['nome_completo'] or u['username'],
         'username': u['username'],
         'tipo': u['tipo'],
         'tempo_total': u['tempo_total'],
@@ -579,6 +601,85 @@ def progresso_usuario(usuario_id):
     } for p in progresso]
     
     return jsonify(progresso_list)
+
+@app.route('/admin/listar_acessos_usuario/<int:usuario_id>')
+@admin_required
+def listar_acessos_usuario(usuario_id):
+    """API para listar os vídeos que um usuário tem acesso"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT video_id FROM usuario_videos_acesso WHERE usuario_id = ?', (usuario_id,))
+    acessos = [row['video_id'] for row in cursor.fetchall()]
+    conn.close()
+    return jsonify({'acessos': acessos})
+
+@app.route('/admin/salvar_acessos_usuario', methods=['POST'])
+@admin_required
+def salvar_acessos_usuario():
+    """API para salvar os vídeos vinculados a um usuário"""
+    data = request.get_json()
+    usuario_id = data.get('usuario_id')
+    video_ids = data.get('video_ids', [])
+    
+    if not usuario_id:
+        return jsonify({'status': 'erro', 'mensagem': 'ID do usuário não fornecido'}), 400
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Remover acessos antigos
+        cursor.execute('DELETE FROM usuario_videos_acesso WHERE usuario_id = ?', (usuario_id,))
+        # Inserir novos acessos
+        for video_id in video_ids:
+            cursor.execute(
+                'INSERT INTO usuario_videos_acesso (usuario_id, video_id) VALUES (?, ?)',
+                (usuario_id, video_id)
+            )
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'sucesso', 'mensagem': 'Acessos atualizados com sucesso'})
+    except Exception as e:
+        conn.close()
+        return jsonify({'status': 'erro', 'mensagem': f'Erro ao salvar acessos: {str(e)}'}), 500
+
+@app.route('/admin/relatorios_kpi')
+@admin_required
+def relatorios_kpi():
+    """API para retornar o relatório completo de KPI"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT 
+            u.nome_completo,
+            u.username as cpf,
+            v.titulo as video_titulo,
+            v.duracao as video_duracao,
+            COALESCE(p.tempo, 0) as tempo_assistido,
+            CASE WHEN p.concluido = 1 THEN 'Sim' ELSE 'Não' END as concluido,
+            ROUND((COALESCE(p.tempo, 0) / v.duracao) * 100, 1) as percentual
+        FROM usuarios u
+        JOIN usuario_videos_acesso uva ON u.id = uva.usuario_id
+        JOIN videos v ON uva.video_id = v.id
+        LEFT JOIN progresso p ON p.usuario_id = u.id AND p.video_id = v.id
+        WHERE u.tipo = 'user'
+        ORDER BY u.nome_completo, v.titulo
+    ''')
+    relatorio = cursor.fetchall()
+    conn.close()
+    
+    relatorio_list = [{
+        'nome_completo': r['nome_completo'] or r['cpf'],
+        'cpf': r['cpf'],
+        'video_titulo': r['video_titulo'],
+        'video_duracao': r['video_duracao'],
+        'tempo_assistido': r['tempo_assistido'],
+        'concluido': r['concluido'],
+        'percentual': r['percentual']
+    } for r in relatorio]
+    
+    return jsonify(relatorio_list)
 
 # ==================== MANIPULADOR DE ERROS ====================
 

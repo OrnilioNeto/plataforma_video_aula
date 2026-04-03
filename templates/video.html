@@ -1,6 +1,7 @@
 <html>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/video.css') }}">
-    <body>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/video.css') }}">
+
+<body>
     <header class="header">
         <div class="header-container">
             <div class="logo">🎓 Treinamento</div>
@@ -12,17 +13,25 @@
     </header>
 
     <main class="container">
+
+        {% if error %}
+        <div
+            style="text-align:center; padding:50px; background:#fff; border-radius:10px; margin:20px; color:#c33; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+            <h2>Acesso Restrito</h2>
+            <p style="margin-top:20px; font-size:16px;">{{ error }}</p>
+        </div>
+        {% else %}
         <div class="layout">
 
             <!-- PLAYER -->
             <section class="player-card">
                 <div class="player-wrapper">
                     {% if video.tipo == 'youtube' %}
-                        <div id="player"></div>
+                    <div id="player"></div>
                     {% else %}
-                        <video id="videoPlayer" controls controlsList="nodownload nofullscreen noremoteplayback">
-                            <source src="{{ url_for('static', filename='videos/' + video.arquivo) }}">
-                        </video>
+                    <video id="videoPlayer" controls controlsList="nodownload nofullscreen noremoteplayback">
+                        <source src="{{ url_for('static', filename='videos/' + video.arquivo) }}">
+                    </video>
                     {% endif %}
                 </div>
 
@@ -57,7 +66,7 @@
                     <li class="{% if v.id == video.id %}active{% endif %}">
                         <a href="{{ url_for('video_page', id=v.id) }}">{{ v.titulo }}</a>
                         {% if v.id == video.id and progresso.concluido %}
-                            <span>✓</span>
+                        <span>✓</span>
                         {% endif %}
                     </li>
                     {% endfor %}
@@ -65,165 +74,167 @@
             </aside>
 
         </div>
+        {% endif %}
     </main>
 
-   <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
 
-<script>
-// ==================== CONFIG GLOBAL ====================
+    <script>
+        // ==================== CONFIG GLOBAL ====================
 
-const VIDEO_ID = {{ video.id }};
-const DURACAO_VIDEO = {{ video.duracao }};
-const TEMPO_ANTERIOR = {{ progresso.tempo }};
-const CONCLUIDO_ANTERIOR = {{ progresso.concluido }};
+        const VIDEO_ID = {{ video.id }};
+        const DURACAO_VIDEO = {{ video.duracao }};
+        const TEMPO_ANTERIOR = {{ progresso.tempo }};
+        const CONCLUIDO_ANTERIOR = {{ progresso.concluido }};
 
-const YOUTUBE_ID = "{{ video.url.split('/')[-1] if video.tipo == 'youtube' else '' }}";
+        const YOUTUBE_ID = "{{ video.url.split('/')[-1] if video.tipo == 'youtube' else '' }}";
 
-let ultimoTempo = TEMPO_ANTERIOR;
-let ultimoEnvio = 0;
+        let ultimoTempo = TEMPO_ANTERIOR;
+        let ultimoEnvio = 0;
 
-// UI
-const progressFill = document.getElementById('progressFill');
-const percentualProgress = document.getElementById('percentualProgress');
-const badgeConclusao = document.getElementById('badgeConclusao');
-const tempoAtualLabel = document.getElementById('tempoAtual');
+        // UI
+        const progressFill = document.getElementById('progressFill');
+        const percentualProgress = document.getElementById('percentualProgress');
+        const badgeConclusao = document.getElementById('badgeConclusao');
+        const tempoAtualLabel = document.getElementById('tempoAtual');
 
-// ==================== FUNÇÕES GERAIS ====================
+        // ==================== FUNÇÕES GERAIS ====================
 
-function atualizarUI(tempoAtual) {
-    const percentual = (tempoAtual / DURACAO_VIDEO) * 100;
+        function atualizarUI(tempoAtual) {
+            const percentual = (tempoAtual / DURACAO_VIDEO) * 100;
 
-    if (progressFill) progressFill.style.width = percentual + '%';
-    if (percentualProgress) percentualProgress.textContent = Math.round(percentual) + '%';
+            if (progressFill) progressFill.style.width = percentual + '%';
+            if (percentualProgress) percentualProgress.textContent = Math.round(percentual) + '%';
 
-    const min = Math.floor(tempoAtual / 60);
-    const sec = Math.floor(tempoAtual % 60);
-    if (tempoAtualLabel) tempoAtualLabel.textContent = `${min}:${String(sec).padStart(2, '0')}`;
-}
+            const min = Math.floor(tempoAtual / 60);
+            const sec = Math.floor(tempoAtual % 60);
+            if (tempoAtualLabel) tempoAtualLabel.textContent = `${min}:${String(sec).padStart(2, '0')}`;
+        }
 
-function marcarConcluido() {
-    if (badgeConclusao) {
-        badgeConclusao.textContent = 'Concluído ✔';
-        badgeConclusao.style.background = '#4caf50';
-    }
-}
-
-function salvarProgresso(tempo) {
-    fetch('/salvar_progresso', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            video_id: VIDEO_ID,
-            tempo: tempo
-        })
-    });
-}
-
-function podeAvancar(tempoAtual) {
-    return tempoAtual <= ultimoTempo + 2;
-}
-
-// ==================== YOUTUBE ====================
-
-let player;
-
-function onYouTubeIframeAPIReady() {
-    if (!YOUTUBE_ID) return;
-
-    player = new YT.Player('player', {
-        videoId: YOUTUBE_ID,
-        playerVars: {
-            controls: 1,
-            disablekb: 1,
-            fs: 0,
-            rel: 0
-        },
-        events: {
-            'onReady': function () {
-                player.seekTo(ultimoTempo);
-                monitorarYoutube();
+        function marcarConcluido() {
+            if (badgeConclusao) {
+                badgeConclusao.textContent = 'Concluído ✔';
+                badgeConclusao.style.background = '#4caf50';
             }
         }
-    });
-}
 
-function monitorarYoutube() {
-    setInterval(() => {
-        if (!player || typeof player.getCurrentTime !== 'function') return;
-
-        let tempoAtual = player.getCurrentTime();
-
-        // 🚨 BLOQUEIO
-        if (!podeAvancar(tempoAtual)) {
-            player.seekTo(ultimoTempo);
-            console.log("🔒 avanço bloqueado (YouTube)");
-            return;
+        function salvarProgresso(tempo) {
+            fetch('/salvar_progresso', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_id: VIDEO_ID,
+                    tempo: tempo
+                })
+            });
         }
 
-        atualizarUI(tempoAtual);
-
-        ultimoTempo = Math.max(ultimoTempo, tempoAtual);
-
-        // salvar a cada 5s
-        const agora = Date.now();
-        if (agora - ultimoEnvio > 5000) {
-            salvarProgresso(tempoAtual);
-            ultimoEnvio = agora;
+        function podeAvancar(tempoAtual) {
+            return tempoAtual <= ultimoTempo + 2;
         }
 
-        if (tempoAtual >= DURACAO_VIDEO * 0.9) {
-            marcarConcluido();
+        // ==================== YOUTUBE ====================
+
+        let player;
+
+        function onYouTubeIframeAPIReady() {
+            if (!YOUTUBE_ID) return;
+
+            player = new YT.Player('player', {
+                videoId: YOUTUBE_ID,
+                playerVars: {
+                    controls: 1,
+                    disablekb: 1,
+                    fs: 0,
+                    rel: 0
+                },
+                events: {
+                    'onReady': function () {
+                        player.seekTo(ultimoTempo);
+                        monitorarYoutube();
+                    }
+                }
+            });
         }
 
-    }, 1000);
-}
+        function monitorarYoutube() {
+            setInterval(() => {
+                if (!player || typeof player.getCurrentTime !== 'function') return;
 
-// ==================== VIDEO LOCAL ====================
+                let tempoAtual = player.getCurrentTime();
 
-const video = document.getElementById('videoPlayer');
+                // 🚨 BLOQUEIO
+                if (!podeAvancar(tempoAtual)) {
+                    player.seekTo(ultimoTempo);
+                    console.log("🔒 avanço bloqueado (YouTube)");
+                    return;
+                }
 
-if (video) {
+                atualizarUI(tempoAtual);
 
-    video.currentTime = TEMPO_ANTERIOR;
+                ultimoTempo = Math.max(ultimoTempo, tempoAtual);
 
-    video.addEventListener('seeking', function () {
-        const tempo = video.currentTime;
+                // salvar a cada 5s
+                const agora = Date.now();
+                if (agora - ultimoEnvio > 5000) {
+                    salvarProgresso(tempoAtual);
+                    ultimoEnvio = agora;
+                }
 
-        if (!podeAvancar(tempo)) {
-            video.currentTime = ultimoTempo;
-            console.log("🔒 avanço bloqueado (LOCAL)");
-        }
-    });
+                if (tempoAtual >= DURACAO_VIDEO * 0.9) {
+                    marcarConcluido();
+                }
 
-    video.addEventListener('timeupdate', function () {
-        const tempo = video.currentTime;
-
-        if (!podeAvancar(tempo)) {
-            video.currentTime = ultimoTempo;
-            return;
-        }
-
-        atualizarUI(tempo);
-
-        ultimoTempo = Math.max(ultimoTempo, tempo);
-
-        const agora = Date.now();
-        if (agora - ultimoEnvio > 5000) {
-            salvarProgresso(tempo);
-            ultimoEnvio = agora;
+            }, 1000);
         }
 
-        if (tempo >= DURACAO_VIDEO * 0.9) {
-            marcarConcluido();
-        }
-    });
+        // ==================== VIDEO LOCAL ====================
 
-    video.addEventListener('ended', function () {
-        ultimoTempo = DURACAO_VIDEO;
-        salvarProgresso(DURACAO_VIDEO);
-        marcarConcluido();
-    });
-}
-</script>
+        const video = document.getElementById('videoPlayer');
+
+        if (video) {
+
+            video.currentTime = TEMPO_ANTERIOR;
+
+            video.addEventListener('seeking', function () {
+                const tempo = video.currentTime;
+
+                if (!podeAvancar(tempo)) {
+                    video.currentTime = ultimoTempo;
+                    console.log("🔒 avanço bloqueado (LOCAL)");
+                }
+            });
+
+            video.addEventListener('timeupdate', function () {
+                const tempo = video.currentTime;
+
+                if (!podeAvancar(tempo)) {
+                    video.currentTime = ultimoTempo;
+                    return;
+                }
+
+                atualizarUI(tempo);
+
+                ultimoTempo = Math.max(ultimoTempo, tempo);
+
+                const agora = Date.now();
+                if (agora - ultimoEnvio > 5000) {
+                    salvarProgresso(tempo);
+                    ultimoEnvio = agora;
+                }
+
+                if (tempo >= DURACAO_VIDEO * 0.9) {
+                    marcarConcluido();
+                }
+            });
+
+            video.addEventListener('ended', function () {
+                ultimoTempo = DURACAO_VIDEO;
+                salvarProgresso(DURACAO_VIDEO);
+                marcarConcluido();
+            });
+        }
+    </script>
 </body>
+
 </html>
