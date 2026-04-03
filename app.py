@@ -5,13 +5,16 @@ from functools import wraps
 from datetime import timedelta
 import bcrypt
 import re
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'sua-chave-secreta-muito-segura-2024'
+app.secret_key = os.environ.get('SECRET_KEY', 'sua-chave-secreta-muito-segura-2024')
 app.permanent_session_lifetime = timedelta(hours=24)
 
 # Caminho do banco de dados
-DB_PATH = '/home/64BitsAcademy/plataforma_video_aula/database.db'
+DB_PATH = os.environ.get('DB_PATH', '/home/64BitsAcademy/plataforma_video_aula/database.db')
 
 # ==================== FUNCÕES DO BANCO DE DADOS ====================
 
@@ -82,11 +85,15 @@ def init_db():
     # Verificar se já existe o usuário admin
     cursor.execute('SELECT * FROM usuarios WHERE username = ?', ('admin',))
     if cursor.fetchone() is None:
-        # Criar usuário admin padrão
-        senha_hash = bcrypt.hashpw(b'admin123', bcrypt.gensalt())
+        # Configurações do admin puxadas das variáveis de ambiente (ou usando padrão)
+        admin_nome = os.environ.get('DEFAULT_ADMIN_NOME', 'Ornilio Neto')
+        admin_user = os.environ.get('DEFAULT_ADMIN_USER', 'admin')
+        admin_pass = os.environ.get('DEFAULT_ADMIN_PASS', '@Machado2025')
+        
+        senha_hash = bcrypt.hashpw(admin_pass.encode('utf-8'), bcrypt.gensalt())
         cursor.execute(
             'INSERT INTO usuarios (nome_completo, username, senha, tipo) VALUES (?, ?, ?, ?)',
-            ('Administrador do Sistema', 'admin', senha_hash, 'admin')
+            (admin_nome, admin_user, senha_hash, 'admin')
         )
         conn.commit()
     
