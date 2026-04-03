@@ -125,6 +125,8 @@ def hash_password(password):
 
 def verify_password(password, password_hash):
     """Verifica se a senha está correta"""
+    if isinstance(password_hash, str):
+        password_hash = password_hash.encode('utf-8')
     return bcrypt.checkpw(password.encode('utf-8'), password_hash)
 
 # ==================== DECORADORES ====================
