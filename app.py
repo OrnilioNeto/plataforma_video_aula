@@ -116,6 +116,9 @@ def init_db():
     
     conn.close()
 
+# Executar a incialização (Garante funcionamento no PythonAnywhere via WSGI)
+init_db()
+
 def hash_password(password):
     """Faz hash da senha com bcrypt"""
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
@@ -720,9 +723,6 @@ def erro_interno(e):
 # ==================== INICIALIZAR APLICAÇÃO ====================
 
 if __name__ == '__main__':
-    # Inicializar banco de dados
-    init_db()
-    
     print("=" * 60)
     print("🚀 Sistema de Treinamento com Vídeo")
     print("=" * 60)
@@ -730,5 +730,4 @@ if __name__ == '__main__':
     print("👤 Admin padrão: admin / admin123")
     print("=" * 60)
     
-    # Executar aplicação
     app.run(debug=True, host='0.0.0.0', port=5000)
