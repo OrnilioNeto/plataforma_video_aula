@@ -11,7 +11,7 @@ app.secret_key = 'sua-chave-secreta-muito-segura-2024'
 app.permanent_session_lifetime = timedelta(hours=24)
 
 # Caminho do banco de dados
-DB_PATH = 'database.db'
+DB_PATH = '/home/64BitsAcademy/plataforma_video_aula/database.db'
 
 # ==================== FUNCÕES DO BANCO DE DADOS ====================
 
