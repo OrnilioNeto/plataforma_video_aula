@@ -92,14 +92,14 @@ def init_db():
     conn.commit()
     
     # Configurações do admin puxadas das variáveis de ambiente (ou usando padrão)
-    admin_nome = os.environ.get('DEFAULT_ADMIN_NOME', 'Ornilio Neto')
-    admin_user = os.environ.get('DEFAULT_ADMIN_USER', 'admin')
-    admin_pass = os.environ.get('DEFAULT_ADMIN_PASS', '@Machado2025')
+    admin_nome = os.environ.get('DEFAULT_ADMIN_NOME', 'Ornilio Neto').strip()
+    admin_user = os.environ.get('DEFAULT_ADMIN_USER', 'admin').strip()
+    admin_pass = os.environ.get('DEFAULT_ADMIN_PASS', '@Machado2025').strip()
 
     # Verificar se já existe o próprio usuário admin da env
     cursor.execute('SELECT * FROM usuarios WHERE username = ?', (admin_user,))
     if cursor.fetchone() is None:
-        senha_hash = bcrypt.hashpw(admin_pass.encode('utf-8'), bcrypt.gensalt())
+        senha_hash = bcrypt.hashpw(admin_pass.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         cursor.execute(
             'INSERT INTO usuarios (nome_completo, username, senha, tipo) VALUES (?, ?, ?, ?)',
             (admin_nome, admin_user, senha_hash, 'admin')
@@ -107,10 +107,10 @@ def init_db():
         conn.commit()
     else:
         # Forçar a atualização da senha configurada no env toda vez que iniciar o app (garantindo login)
-        senha_hash = bcrypt.hashpw(admin_pass.encode('utf-8'), bcrypt.gensalt())
+        senha_hash = bcrypt.hashpw(admin_pass.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         cursor.execute(
-            'UPDATE usuarios SET senha = ?, nome_completo = ? WHERE username = ?',
-            (senha_hash, admin_nome, admin_user)
+            'UPDATE usuarios SET senha = ?, nome_completo = ?, tipo = ? WHERE username = ?',
+            (senha_hash, admin_nome, 'admin', admin_user)
         )
         conn.commit()
     
@@ -121,7 +121,7 @@ init_db()
 
 def hash_password(password):
     """Faz hash da senha com bcrypt"""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def verify_password(password, password_hash):
     """Verifica se a senha está correta"""

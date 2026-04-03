@@ -13,11 +13,11 @@ conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 # Definir credenciais do admin lendo das variáveis de ambiente (com falback temporário caso não exista env)
-username = os.environ.get('DEFAULT_ADMIN_USER', 'admin')
-senha_plana = os.environ.get('DEFAULT_ADMIN_PASS', '@Machado2025')
-senha_hash = bcrypt.hashpw(senha_plana.encode('utf-8'), bcrypt.gensalt())
+username = os.environ.get('DEFAULT_ADMIN_USER', 'admin').strip()
+senha_plana = os.environ.get('DEFAULT_ADMIN_PASS', '@Machado2025').strip()
+senha_hash = bcrypt.hashpw(senha_plana.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 tipo = "admin"
-nome_completo = os.environ.get('DEFAULT_ADMIN_NOME', 'Ornilio Neto')
+nome_completo = os.environ.get('DEFAULT_ADMIN_NOME', 'Ornilio Neto').strip()
 
 # Verificar se já existe
 cursor.execute("SELECT id FROM usuarios WHERE username = ?", (username,))
